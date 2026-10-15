@@ -48,6 +48,16 @@ pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--ca
 #z .x{position:absolute;right:16px;top:calc(12px + env(safe-area-inset-top,0px));color:#fff;font-size:32px;line-height:1}
 #z .a{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:28px;line-height:1;padding:0}
 #z .a.l{left:10px}#z .a.r{right:10px}
+
+.card{background:none;padding:0;border-radius:0;outline:0;text-align:left;touch-action:manipulation}
+.grid{grid-template-columns:repeat(3,1fr);gap:12px 8px;padding:3px}
+.card .im{aspect-ratio:6/7;border-radius:12px;background-color:var(--chip);background-size:cover;background-position:center}
+.card.in .im{box-shadow:0 0 0 2.5px var(--ac)}
+.card .nm{padding:5px 2px 0;font-size:14px;font-weight:600;line-height:1.25;word-break:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .pr{padding:0 2px;line-height:1.2;margin-top:1px}
+.card .q{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.chips.w{margin-bottom:8px}.chips.w .chip.on{background:#8e8e93;color:#fff}
+.chips.g .chip{background:none;font-weight:600;padding:8px 14px}.chips.g .chip.on{background:var(--ac);color:var(--gt)}
 </style>
 </head>
 <body>
@@ -60,7 +70,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const qs=new URLSearchParams(location.search);
 const T0=Date.now();
 /* ★ 乾淨網址：把你的後台網址（Apps Script 部署後的 …/exec）貼在下面引號內，連結就不用再帶 ?a=… */
-const DEFAULT_API='https://script.google.com/macros/s/AKfycbw9aNcVrbvV0d3rXr9at1RISuInh-FWL1sQqmgQGr22BMNmqwp3sGbtnbmjDlNB1Moc/exec';
+const DEFAULT_API='';
 let API=DEFAULT_API;
 try{const a=qs.get('a');if(a){const b=a.replace(/-/g,'+').replace(/_/g,'/');API=atob(b+'='.repeat((4-b.length%4)%4))}}catch(e){}
 const TOKEN=qs.get('t')||qs.get('token')||qs.get('o')||'';
@@ -77,7 +87,7 @@ const imgsOf=p=>[p.img,...(p.imgs||[])].filter(Boolean);
 
 /* ===== 載入 ===== */
 async function init(){
-  if(!API)return fail('連結不完整，請向店家取得正確的表單連結。');
+  if(!API)return fail('連結不完整，請向店家取得正確的表單連結。\n（店家：請在 preorder-index.html 填入 DEFAULT_API）');
   try{
     if(TOKEN)return payInit();
     const raw=await jget({action:'config'});
@@ -124,7 +134,7 @@ function drawProd(){
   FW=FW.filter(w=>ws.includes(w));if(FG&&!gs.includes(FG))FG='';
   const ps=PRODS.filter(p=>(!FG||p.group==FG)&&(!FW.length||FW.includes(p.work)));
   const rows=PRODS.filter(p=>Q[p.id]).map(p=>({n:p.name,q:Q[p.id],s:Q[p.id]*p.price})),tot=rows.reduce((a,r)=>a+r.s,0);
-  el.innerHTML=(ws.length||gs.length?`<div>${ws.length?`<div class="chips">${ws.map((w,i)=>`<button class="chip ${FW.includes(w)?'on':''}" onclick="tog('w',${i})">${esc(w)}</button>`).join('')}</div>`:''}${gs.length?`<div class="chips"><button class="chip ${FG?'':'on'}" onclick="tog('g',-1)">全部</button>${gs.map((g,i)=>`<button class="chip ${FG==g?'on':''}" onclick="tog('g',${i})">${esc(g)}</button>`).join('')}</div>`:''}</div>`:'')
+  el.innerHTML=(ws.length||gs.length?`<div>${ws.length?`<div class="chips w">${ws.map((w,i)=>`<button class="chip ${FW.includes(w)?'on':''}" onclick="tog('w',${i})">${esc(w)}</button>`).join('')}</div>`:''}${gs.length?`<div class="chips g"><button class="chip ${FG?'':'on'}" onclick="tog('g',-1)">全部</button>${gs.map((g,i)=>`<button class="chip ${FG==g?'on':''}" onclick="tog('g',${i})">${esc(g)}</button>`).join('')}</div>`:''}</div>`:'')
   +`<div class="l">${esc(pb.label||'選擇商品')}<i>*</i></div>${pb.text?`<div class="tx" style="margin-bottom:8px">${esc(pb.text)}</div>`:''}`
   +(ps.length?`<div class="grid">${ps.map(p=>{const q=Q[p.id]||0,s=stockOf(p);return `<div class="card ${q?'in':''}"><div class="im" style="${p.img?`background-image:url('${esc(p.img)}')`:''}" onclick="zoom(${p.id})"></div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}${s!=null&&s<=5?` · 剩 ${s}`:''}</div><div class="q"><button onclick="dq(${p.id},-1)">−</button><b>${q}</b><button onclick="dq(${p.id},1)" ${s!=null&&q>=s?'disabled':''}>+</button></div></div>`}).join('')}</div>`:'<div class="msg" style="padding:24px">沒有符合的商品</div>')
   +(rows.length?`<div class="sum"><div class="sr h"><span>品項</span><span>數量</span><span>金額</span></div>${rows.map(r=>`<div class="sr"><span>${esc(r.n)}</span><span>${r.q}</span><span>${money(r.s)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>總計</b><b style="font-size:18px">${money(tot)}</b></div></div>`:'');
