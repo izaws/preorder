@@ -70,7 +70,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const qs=new URLSearchParams(location.search);
 const T0=Date.now();
 /* ★ 乾淨網址：把你的後台網址（Apps Script 部署後的 …/exec）貼在下面引號內，連結就不用再帶 ?a=… */
-const DEFAULT_API='';
+const DEFAULT_API='https://script.google.com/macros/s/AKfycbw9aNcVrbvV0d3rXr9at1RISuInh-FWL1sQqmgQGr22BMNmqwp3sGbtnbmjDlNB1Moc/exec';
 let API=DEFAULT_API;
 try{const a=qs.get('a');if(a){const b=a.replace(/-/g,'+').replace(/_/g,'/');API=atob(b+'='.repeat((4-b.length%4)%4))}}catch(e){}
 const TOKEN=qs.get('t')||qs.get('token')||qs.get('o')||'';
