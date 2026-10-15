@@ -172,7 +172,7 @@ async function submit(){
   if(!o.mode)o.mode='onsite';
   go.disabled=true;go.textContent='送出中…';
   try{
-    const r=await jpost({action:'submit',website:$('#hp').value,elapsed:Date.now()-T0,items,ans,...o});
+    const r=await jpost({action:'submit',base:location.origin+location.pathname,website:$('#hp').value,elapsed:Date.now()-T0,items,ans,...o});
     if(!r.ok)throw new Error(r.err||'送出失敗');
     done(r);
   }catch(e){er.textContent=e.message;go.disabled=false;go.textContent='送出預購'}
@@ -202,7 +202,7 @@ async function pay(){
   const v=($('#l5').value||'').trim(),er=$('#er');er.textContent='';
   if(!/^\d{5}$/.test(v)){er.textContent='請輸入 5 位數字';return}
   const g=$('#go');g.disabled=true;g.textContent='送出中…';
-  try{const r=await jpost({action:'pay',token:TOKEN,t:TOKEN,last5:v});if(!r.ok)throw new Error(r.err||'回報失敗');
+  try{const r=await jpost({action:'pay',base:location.origin+location.pathname,token:TOKEN,t:TOKEN,last5:v});if(!r.ok)throw new Error(r.err||'回報失敗');
     $('#app').innerHTML='<div class="t">已收到回報</div><div class="tx">感謝您，店家確認款項後會再通知您。</div>'}
   catch(e){er.textContent=e.message;g.disabled=false;g.textContent='回報已匯款'}
 }
