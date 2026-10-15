@@ -58,6 +58,30 @@ pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--ca
 .card .q{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
 .chips.w{margin-bottom:8px}.chips.w .chip.on{background:#8e8e93;color:#fff}
 .chips.g .chip{background:none;font-weight:600;padding:8px 14px}.chips.g .chip.on{background:var(--ac);color:var(--gt)}
+
+.imw{position:relative}.card .im{display:flex;align-items:center;justify-content:center}
+.card{cursor:pointer}.card .q button:disabled{opacity:.4}
+.card.so .im{filter:grayscale(1);opacity:.5}.card.so .nm,.card.so .pr{opacity:.5}
+.pending-sale{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;background:rgba(47,47,51,.8);color:#fff;border-radius:5px;padding:9px 12px;font-size:13px;font-weight:600;pointer-events:none;box-shadow:0 1px 5px rgba(0,0,0,.12)}
+.pending-sale svg{width:15px;height:15px;flex-shrink:0}
+#pd{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px}#pd.on{display:flex}
+#z{z-index:100}
+.pvd-b{position:relative;background:var(--bg);width:100%;max-width:560px;max-height:100%;overflow:auto;border-radius:24px;padding-bottom:18px}
+.pvd-x{position:absolute;right:12px;top:12px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:20px;line-height:1;padding:0;z-index:3}
+.pvd-im{margin:18px 18px 0;height:min(40vh,340px);background:var(--chip);border-radius:16px;overflow:hidden;position:relative;touch-action:pan-y;cursor:zoom-in;user-select:none}
+.pvd-im.ph{display:flex;align-items:center;justify-content:center;cursor:default}
+.pvd-im.so .pvd-trk{filter:grayscale(1);opacity:.5}
+.pvd-trk{display:flex;height:100%;transition:transform .32s cubic-bezier(.25,.8,.3,1)}
+.pvd-s{flex:0 0 100%;height:100%;background:center/contain no-repeat}
+.pvd-th{display:flex;gap:8px;overflow-x:auto;padding:10px 16px 0}
+.pvd-th i{flex:none;width:56px;height:56px;border-radius:10px;background:var(--chip) center/cover no-repeat;border:2px solid transparent;cursor:pointer}
+.pvd-th i.on{border-color:var(--ac)}
+.pvd-in{padding:16px 18px 0}
+.pvd-r{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pvd-n{font-size:18px;min-width:0;word-break:break-all}
+.pvd-q{display:flex;align-items:center;gap:10px;flex:none}
+.pvd-q button{width:28px;height:28px;border-radius:50%;border:0;background:var(--ln);color:var(--tx);font-size:18px;line-height:1;padding:0}.pvd-q button:disabled{opacity:.4}
+.pvd-q b{min-width:18px;text-align:center}
 </style>
 </head>
 <body>
@@ -84,6 +108,9 @@ function fail(msg,raw){$('#app').innerHTML=`<div class="msg">${esc(msg)}${raw!==
 let CFG=null,PRODS=[],Q={},FW=[],FG='';
 const stockOf=p=>{const v=p.stock!=null?p.stock:p.rem!=null?p.rem:p.left!=null?p.left:(p.evs&&CFG&&CFG.ev!=null&&p.evs[CFG.ev]!=null?p.evs[CFG.ev]:null);return v==null?null:+v};
 const imgsOf=p=>[p.img,...(p.imgs||[])].filter(Boolean);
+/* 品項：有設定品項(vars)就每個品項各自數量，否則商品本身就是唯一品項（和預覽表單相同） */
+const itemsOf=p=>(p.vars&&p.vars.length)?p.vars.map((v,i)=>({k:p.id+'_'+i,vi:i,name:v.name,price:v.price===''||v.price==null?+p.price:+v.price})):[{k:p.id+'_0',vi:-1,name:p.name,price:+p.price}];
+const qtyOf=p=>itemsOf(p).reduce((a,x)=>a+(Q[x.k]||0),0),sumOf=p=>itemsOf(p).reduce((a,x)=>a+(Q[x.k]||0)*x.price,0);
 
 /* ===== 載入 ===== */
 async function init(){
@@ -133,21 +160,45 @@ function drawProd(){
   const ws=[...new Set(PRODS.map(p=>p.work).filter(Boolean))],gs=[...new Set(PRODS.map(p=>p.group).filter(Boolean))];
   FW=FW.filter(w=>ws.includes(w));if(FG&&!gs.includes(FG))FG='';
   const ps=PRODS.filter(p=>(!FG||p.group==FG)&&(!FW.length||FW.includes(p.work)));
-  const rows=PRODS.filter(p=>Q[p.id]).map(p=>({n:p.name,q:Q[p.id],s:Q[p.id]*p.price})),tot=rows.reduce((a,r)=>a+r.s,0);
+  const rows=[];PRODS.forEach(p=>{const vr=p.vars&&p.vars.length;itemsOf(p).forEach(x=>{const q=Q[x.k]||0;if(q)rows.push({n:vr?p.name+'・'+x.name:p.name,q,s:q*x.price})})});const tot=rows.reduce((a,r)=>a+r.s,0);
   el.innerHTML=(ws.length||gs.length?`<div>${ws.length?`<div class="chips w">${ws.map((w,i)=>`<button class="chip ${FW.includes(w)?'on':''}" onclick="tog('w',${i})">${esc(w)}</button>`).join('')}</div>`:''}${gs.length?`<div class="chips g"><button class="chip ${FG?'':'on'}" onclick="tog('g',-1)">全部</button>${gs.map((g,i)=>`<button class="chip ${FG==g?'on':''}" onclick="tog('g',${i})">${esc(g)}</button>`).join('')}</div>`:''}</div>`:'')
   +`<div class="l">${esc(pb.label||'選擇商品')}<i>*</i></div>${pb.text?`<div class="tx" style="margin-bottom:8px">${esc(pb.text)}</div>`:''}`
-  +(ps.length?`<div class="grid">${ps.map(p=>{const q=Q[p.id]||0,s=stockOf(p);return `<div class="card ${q?'in':''}"><div class="im" style="${p.img?`background-image:url('${esc(p.img)}')`:''}" onclick="zoom(${p.id})"></div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}${s!=null&&s<=5?` · 剩 ${s}`:''}</div><div class="q"><button onclick="dq(${p.id},-1)">−</button><b>${q}</b><button onclick="dq(${p.id},1)" ${s!=null&&q>=s?'disabled':''}>+</button></div></div>`}).join('')}</div>`:'<div class="msg" style="padding:24px">沒有符合的商品</div>')
+  +(ps.length?`<div class="grid">${ps.map(p=>{const q=qtyOf(p),s=stockOf(p),so=s!=null&&s<=0;return `<div class="card ${q?'in':''} ${so?'so':''}" onclick="pvOpen(${p.id})"><div class="imw"><div class="im" style="${p.img?`background-image:url('${esc(p.img)}')`:''}">${p.img?'':GIFT}</div>${so?SOLD:''}</div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}${s!=null&&s>0&&s<=5?` · 剩 ${s}`:''}</div><div class="q" onclick="event.stopPropagation()"><button onclick="dc(${p.id},-1)">−</button><b>${q}</b><button onclick="dc(${p.id},1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></div></div>`}).join('')}</div>`:'<div class="msg" style="padding:24px">沒有符合的商品</div>')
   +(rows.length?`<div class="sum"><div class="sr h"><span>品項</span><span>數量</span><span>金額</span></div>${rows.map(r=>`<div class="sr"><span>${esc(r.n)}</span><span>${r.q}</span><span>${money(r.s)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>總計</b><b style="font-size:18px">${money(tot)}</b></div></div>`:'');
 }
 function tog(k,i){const ws=[...new Set(PRODS.map(p=>p.work).filter(Boolean))],gs=[...new Set(PRODS.map(p=>p.group).filter(Boolean))];
   if(k=='g')FG=i<0||FG==gs[i]?'':gs[i];else{const w=ws[i],j=FW.indexOf(w);j>=0?FW.splice(j,1):FW.push(w)}drawProd()}
-function dq(id,d){const p=PRODS.find(x=>x.id==id);if(!p)return;const s=stockOf(p);let q=Math.max(0,(Q[id]||0)+d);if(s!=null)q=Math.min(q,s);q=Math.min(q,50);if(q)Q[id]=q;else delete Q[id];drawProd()}
+function setQ(p,k,d){const s=stockOf(p);let q=Math.max(0,(Q[k]||0)+d);if(d>0&&((s!=null&&qtyOf(p)>=s)||qtyOf(p)>=50))return;if(q)Q[k]=q;else delete Q[k]}
+/* 商品卡上的 −／＋：有多個品項時＋會開啟詳情讓客人選品項 */
+function dc(id,d){const p=PRODS.find(x=>x.id==id);if(!p)return;const it=itemsOf(p);if(d>0){if(it.length>1)return pvOpen(id);setQ(p,it[0].k,1)}else{const x=[...it].reverse().find(x=>Q[x.k]>0);if(x)setQ(p,x.k,-1)}drawProd();if(PDID==id)pdR()}
+/* 詳情內各品項的 −／＋ */
+function dq(id,k,d){const p=PRODS.find(x=>x.id==id);if(!p)return;setQ(p,k,d);drawProd();pdR()}
+
+
+/* ===== 商品詳情（和預覽表單相同） ===== */
+const GIFT='<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#b8b2a8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M5 12v9h14v-9M8 8a2.5 2.5 0 110-5c2 0 4 2.5 4 5M16 8a2.5 2.5 0 100-5c-2 0-4 2.5-4 5"/></svg>';
+const SOLD='<div class="pending-sale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>完售</span></div>';
+let PDID=null,PDI=0,PDMV=0;
+function pvOpen(id){PDID=id;PDI=0;pdR()}
+function pdR(){const p=PRODS.find(x=>x.id==PDID);if(!p)return;let d=$('#pd');if(!d){d=document.createElement('div');d.id='pd';d.onclick=e=>{if(e.target===d)pdClose()};document.body.appendChild(d)}
+  const im=imgsOf(p),its=itemsOf(p),s=stockOf(p),q=qtyOf(p),so=s!=null&&s<=0;if(PDI>=im.length)PDI=0;
+  d.innerHTML=`<div class="pvd-b"><button class="pvd-x" onclick="pdClose()">×</button><div class="pvd-im${im.length?'':' ph'}${so?' so':''}" id="pdim">${im.length?`<div class="pvd-trk" id="pdtrk" style="transform:translateX(-${PDI*100}%)">${im.map(u=>`<div class="pvd-s" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`:GIFT}${so?SOLD:''}</div>${im.length>1?`<div class="pvd-th" id="pdth">${im.map((u,i)=>`<i class="${i==PDI?'on':''}" style="background-image:url('${esc(u)}')" onclick="pdGo(${i})"></i>`).join('')}</div>`:''}
+  <div class="pvd-in">${its.map((x,i)=>`<div class="pvd-r"><b class="pvd-n">${esc(x.name)}</b><b style="flex:none;font-size:18px">${money(x.price)}</b></div><div class="pvd-r" style="margin:6px 0 12px;align-items:center"><span class="tx" style="flex:1;min-width:0">${i==0?esc(p.desc||''):''}${i==0&&s!=null&&s>0&&s<=5?`${p.desc?'\n':''}剩 ${s}`:''}</span><span class="pvd-q"><button onclick="dq(${p.id},'${x.k}',-1)">−</button><b>${Q[x.k]||0}</b><button onclick="dq(${p.id},'${x.k}',1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></span></div>`).join('')}
+  <hr style="margin:4px 0 12px"><div class="row"><b>小計</b><b style="font-size:18px">${money(sumOf(p))}</b></div><button class="btn" style="margin-top:16px" onclick="pdClose()">完成</button></div></div>`;
+  d.classList.add('on');pdSwipe()}
+function pdGo(i){const p=PRODS.find(x=>x.id==PDID);if(!p)return;const n=imgsOf(p).length;if(!n)return;PDI=Math.max(0,Math.min(n-1,i));const k=$('#pdtrk');if(k){k.style.transition='';k.style.transform=`translateX(-${PDI*100}%)`}document.querySelectorAll('#pdth i').forEach((e,j)=>e.classList.toggle('on',j==PDI))}
+function pdSwipe(){const el=$('#pdim'),k=$('#pdtrk');if(!el||!k)return;let x0=null,dx=0,w=1;el.onclick=()=>{if(!PDMV)zoom(PDID,PDI)};
+  el.onpointerdown=e=>{x0=e.clientX;dx=0;PDMV=0;w=el.clientWidth||1;try{el.setPointerCapture(e.pointerId)}catch(_){}};
+  el.onpointermove=e=>{if(x0==null)return;dx=e.clientX-x0;if(Math.abs(dx)>6)PDMV=1;if(PDMV){k.style.transition='none';k.style.transform=`translateX(calc(-${PDI*100}% + ${dx}px))`}};
+  const end=()=>{if(x0==null)return;const d=dx;x0=null;k.style.transition='';pdGo(Math.abs(d)>w*.15?PDI+(d<0?1:-1):PDI);setTimeout(()=>PDMV=0,60)};
+  el.onpointerup=end;el.onpointercancel=end}
+function pdClose(){const d=$('#pd');if(d)d.classList.remove('on');PDID=null}
 
 /* ===== 圖片放大（可左右拖曳） ===== */
 let ZI=[],ZX=0,ZS=null,ZD=0,ZM=0;
-function zoom(id){const p=PRODS.find(x=>x.id==id);ZI=p?imgsOf(p):[];if(!ZI.length)return;ZX=0;zdraw();$('#z').classList.add('on')}
+function zoom(id,i){const p=PRODS.find(x=>x.id==id);ZI=p?imgsOf(p):[];if(!ZI.length)return;ZX=Math.min(+i||0,ZI.length-1);zdraw();$('#z').classList.add('on')}
 function zdraw(){const z=$('#z');z.innerHTML=`<img src="${esc(ZI[ZX])}" alt="">${ZI.length>1?`<button class="a l" onclick="event.stopPropagation();zgo(-1)">‹</button><button class="a r" onclick="event.stopPropagation();zgo(1)">›</button>`:''}<span class="x">×</span>`}
-function zgo(d){ZX=(ZX+d+ZI.length)%ZI.length;zdraw()}
+function zgo(d){ZX=(ZX+d+ZI.length)%ZI.length;zdraw();if(PDID!=null)pdGo(ZX)}
 (()=>{const z=$('#z');z.onclick=()=>{if(ZM){ZM=0;return}z.classList.remove('on')};
  z.onpointerdown=e=>{ZS=e.clientX;ZD=0;ZM=0;try{z.setPointerCapture(e.pointerId)}catch(_){}};
  z.onpointermove=e=>{if(ZS==null)return;ZD=e.clientX-ZS;if(Math.abs(ZD)>8)ZM=1;const m=z.querySelector('img');if(m&&ZM){m.style.transition='none';m.style.transform=`translateX(${ZD}px)`}};
@@ -167,6 +218,10 @@ function collect(){
     else if(t=='radio'){const c=box.querySelector('input:checked');v=c?c.value:''}
     else if(t=='agree'){v=box.querySelector('input').checked?'已同意':''}
     else v=(box.querySelector('input,textarea,select').value||'').trim();
+    if(v&&!Array.isArray(v)){
+      if(t=='email'||b.key=='email'){const m=chkEmail(v);if(m&&!bad)bad={box,msg:m}}
+      else if(t=='url'||b.key=='social'){const u=normUrl(v);if(u==null){if(!bad)bad={box,msg:`「${b.label||'網址'}」格式不正確，請貼上完整網址（例如 https://instagram.com/帳號）`}}else v=u}
+    }
     const empty=Array.isArray(v)?!v.length:!v;
     if(b.req&&empty&&!bad)bad={box,msg:`請填寫「${b.label||'必填欄位'}」`};
     ans[b.id]=v;
@@ -174,10 +229,13 @@ function collect(){
   }
   return {ans,o,bad};
 }
+const TYPO={'gmial.com':'gmail.com','gmai.com':'gmail.com','gamil.com':'gmail.com','gnail.com':'gmail.com','gmail.co':'gmail.com','gmail.con':'gmail.com','gmaill.com':'gmail.com','yaho.com.tw':'yahoo.com.tw','yahho.com.tw':'yahoo.com.tw','yahoo.con.tw':'yahoo.com.tw','hotmial.com':'hotmail.com','hotmal.com':'hotmail.com','outlok.com':'outlook.com','outlook.co':'outlook.com','icloud.co':'icloud.com','iclould.com':'icloud.com'};
+function chkEmail(s){s=String(s).trim();if(!/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}$/.test(s)||s.includes('..')||/^\.|\.@/.test(s))return 'Email 格式不正確，請確認有沒有打錯';const d=s.split('@')[1].toLowerCase();if(TYPO[d])return `Email 網域看起來打錯了，是不是 ${s.split('@')[0]}@${TYPO[d]}？`;return ''}
+function normUrl(s){s=String(s||'').trim();if(!s)return '';if(/\s/.test(s))return null;const u=/^https?:\/\//i.test(s)?s:'https://'+s,m=u.match(/^https?:\/\/([^\/?#:]+)(?::\d+)?([\/?#].*)?$/i);if(!m||!/^([A-Za-z0-9\-]+\.)+[A-Za-z]{2,}$/.test(m[1]))return null;return u}
 const PF_IN=['text','textarea','email','url','tel','number','date','time','select','radio','checkbox','agree'];
 async function submit(){
   const er=$('#er'),go=$('#go');er.textContent='';document.querySelectorAll('.bad').forEach(x=>x.classList.remove('bad'));
-  const items=Object.keys(Q).map(k=>({pid:+k,qty:Q[k]}));
+  const items=[];PRODS.forEach(p=>itemsOf(p).forEach(x=>{if(Q[x.k])items.push({pid:p.id,vi:x.vi,qty:Q[x.k]})}));
   if(!items.length){er.textContent='請選擇商品';return}
   const {ans,o,bad}=collect();
   if(bad){bad.box.classList.add('bad');bad.box.scrollIntoView({behavior:'smooth',block:'center'});er.textContent=bad.msg;return}
@@ -207,8 +265,8 @@ async function payInit(){
   $('#app').innerHTML=`<div class="t">匯款回報</div><div class="tx">訂單編號 #${esc(o.no||'')}${o.status?`　狀態：${esc(o.status)}`:''}</div>
   <div class="box">${items.map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>應付</b><b style="font-size:18px">${money(o.total)}</b></div></div>
   ${r.bank||o.bank?`<div class="box"><div class="l">匯款資訊</div><div style="white-space:pre-wrap">${esc(r.bank||o.bank)}</div></div>`:''}
-  <div class="b"><div class="l">匯款帳號後五碼<i>*</i></div><input id="l5" inputmode="numeric" maxlength="5" placeholder="例如 12345"></div>
-  <div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`;
+  ${r.canPay===false?`<div class="msg" style="padding:24px 0">${o.mode=='ship'?'通販訂單是貨到付款，不需要匯款回報。':'這筆訂單目前不需要匯款回報（可能已確認收款或已取消）。'}</div>`:`<div class="b"><div class="l">匯款帳號後五碼<i>*</i></div><input id="l5" inputmode="numeric" maxlength="5" placeholder="例如 12345"></div>
+  <div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`}`;
 }
 async function pay(){
   const v=($('#l5').value||'').trim(),er=$('#er');er.textContent='';
