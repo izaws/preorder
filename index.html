@@ -70,7 +70,7 @@ function fail(msg,raw){$('#app').innerHTML=`<div class="msg">${esc(msg)}${raw!==
 
 /* ===== 狀態 ===== */
 let CFG=null,PRODS=[],Q={},FW=[],FG='';
-const stockOf=p=>{const v=p.stock!=null?p.stock:p.left!=null?p.left:(p.evs&&CFG&&CFG.ev!=null&&p.evs[CFG.ev]!=null?p.evs[CFG.ev]:null);return v==null?null:+v};
+const stockOf=p=>{const v=p.stock!=null?p.stock:p.rem!=null?p.rem:p.left!=null?p.left:(p.evs&&CFG&&CFG.ev!=null&&p.evs[CFG.ev]!=null?p.evs[CFG.ev]:null);return v==null?null:+v};
 const imgsOf=p=>[p.img,...(p.imgs||[])].filter(Boolean);
 
 /* ===== 載入 ===== */
