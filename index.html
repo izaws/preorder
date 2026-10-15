@@ -32,7 +32,7 @@ textarea{resize:vertical;min-height:84px}
 .nm{font-size:13px;font-weight:600;margin-top:6px;word-break:break-all}.pr{font-size:13px;color:var(--sub)}
 .q{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
 .q button{width:28px;height:28px;border-radius:50%;border:0;background:var(--ln);color:var(--tx);font-size:18px;line-height:1;padding:0}.q b{min-width:18px;text-align:center}
-.sum{margin-top:14px}.sr{display:grid;grid-template-columns:1fr 44px 76px;gap:8px;padding:4px 0;font-size:14px}.sr.h{color:var(--sub);font-size:13px}
+.pill{display:inline-block;border-radius:10px;padding:1px 9px;font-size:12px;color:#fff;margin-left:4px;background:#b3aca1;font-weight:500}.sr small{color:var(--sub);font-size:12px}.sum{margin-top:14px}.sr{display:grid;grid-template-columns:1fr 44px 76px;gap:8px;padding:4px 0;font-size:14px}.sr.h{color:var(--sub);font-size:13px}
 .sr span:nth-child(2){text-align:center}.sr span:last-child{text-align:right}
 .row{display:flex;justify-content:space-between;align-items:center}
 .btn{width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:700;background:var(--ac);color:var(--gt);margin-top:22px}
@@ -121,7 +121,7 @@ async function init(){
     if(raw&&raw.ok===false)return fail(raw.err||'表單載入失敗');
     const c=raw.config||raw.data||raw,pre=c.pre||c;
     if(!Array.isArray(pre.blocks))return fail('後台回應的格式和表單不符',raw);
-    CFG={ev:pre.ev!=null?pre.ev:c.ev,title:pre.title||'',note:pre.note||'',blocks:pre.blocks,open:pre.open!==false&&c.open!==false};
+    CFG={ev:pre.ev!=null?pre.ev:c.ev,title:pre.title||'',note:pre.note||'',blocks:pre.blocks,open:pre.open!==false&&c.open!==false,rules:c.rules||{full:[],buy:[]},pmeta:c.pmeta||{}};
     const all=c.products||pre.products||raw.products||[],pids=pre.pids||c.pids;
     PRODS=all.filter(p=>p&&!p.off&&(!pids||pids.includes(p.id)));
     document.title=CFG.title||'預購表單';
@@ -139,6 +139,9 @@ function field(b){
   if(t=='divider')return '<hr>';
   if(t=='image')return b.url?`<div style="text-align:${b.align||'center'}"><img src="${esc(b.url)}" alt="" style="max-width:${b.size||100}%;border-radius:12px"></div>`:'';
   if(t=='products')return `<div id="prod"></div>`;
+  if(t=='ordersum'&&ORD)return `<div class="sr h" style="grid-template-columns:1fr 44px 76px"><span>品項</span><span>數量</span><span>金額</span></div>${(ORD.items||[]).map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>應付</b><b style="font-size:18px">${money(ORD.total)}</b></div>`;
+  if(t=='bankinfo')return ORD&&ORD.bank?`<div class="l">${esc(b.label||'匯款資訊')}</div><div style="white-space:pre-wrap">${esc(ORD.bank)}</div>`:'';
+  if(t=='last5')return `${L}<input name="${n}" inputmode="numeric" maxlength="5" placeholder="${ph}" autocomplete="off">`;
   if(t=='pickup')return `<div class="l">${esc(b.label||'')}<i>*</i></div>`+(b.opts||[]).map((o,i)=>`<label class="o"><input type="radio" name="pickup" value="${esc(o.id)}" ${i==0?'checked':''}>${esc(o.label)}</label>`).join('');
   if(t=='select')return `${L}<select name="${n}"><option value="">請選擇</option>${(b.opts||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
   if(t=='radio'||t=='checkbox')return `${L}`+(b.opts||[]).map(o=>`<label class="o"><input type="${t}" name="${n}" value="${esc(o)}">${esc(o)}</label>`).join('');
@@ -163,8 +166,30 @@ function drawProd(){
   const rows=[];PRODS.forEach(p=>{const vr=p.vars&&p.vars.length;itemsOf(p).forEach(x=>{const q=Q[x.k]||0;if(q)rows.push({n:vr?p.name+'・'+x.name:p.name,q,s:q*x.price})})});const tot=rows.reduce((a,r)=>a+r.s,0);
   el.innerHTML=(ws.length||gs.length?`<div>${ws.length?`<div class="chips w">${ws.map((w,i)=>`<button class="chip ${FW.includes(w)?'on':''}" onclick="tog('w',${i})">${esc(w)}</button>`).join('')}</div>`:''}${gs.length?`<div class="chips g"><button class="chip ${FG?'':'on'}" onclick="tog('g',-1)">全部</button>${gs.map((g,i)=>`<button class="chip ${FG==g?'on':''}" onclick="tog('g',${i})">${esc(g)}</button>`).join('')}</div>`:''}</div>`:'')
   +`<div class="l">${esc(pb.label||'選擇商品')}<i>*</i></div>${pb.text?`<div class="tx" style="margin-bottom:8px">${esc(pb.text)}</div>`:''}`
-  +(ps.length?`<div class="grid">${ps.map(p=>{const q=qtyOf(p),s=stockOf(p),so=s!=null&&s<=0;return `<div class="card ${q?'in':''} ${so?'so':''}" onclick="pvOpen(${p.id})"><div class="imw"><div class="im" style="${p.img?`background-image:url('${esc(p.img)}')`:''}">${p.img?'':GIFT}</div>${so?SOLD:''}</div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}${s!=null&&s>0&&s<=5?` · 剩 ${s}`:''}</div><div class="q" onclick="event.stopPropagation()"><button onclick="dc(${p.id},-1)">−</button><b>${q}</b><button onclick="dc(${p.id},1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></div></div>`}).join('')}</div>`:'<div class="msg" style="padding:24px">沒有符合的商品</div>')
-  +(rows.length?`<div class="sum"><div class="sr h"><span>品項</span><span>數量</span><span>金額</span></div>${rows.map(r=>`<div class="sr"><span>${esc(r.n)}</span><span>${r.q}</span><span>${money(r.s)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>總計</b><b style="font-size:18px">${money(tot)}</b></div></div>`:'');
+  +(ps.length?`<div class="grid">${ps.map(p=>{const q=qtyOf(p),s=stockOf(p),so=s!=null&&s<=0;return `<div class="card ${q?'in':''} ${so?'so':''}" onclick="pvOpen(${p.id})"><div class="imw"><div class="im" style="${p.img?`background-image:url('${esc(p.img)}')`:''}">${p.img?'':GIFT}</div>${so?SOLD:''}</div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}</div><div class="q" onclick="event.stopPropagation()"><button onclick="dc(${p.id},-1)">−</button><b>${q}</b><button onclick="dc(${p.id},1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></div></div>`}).join('')}</div>`:'<div class="msg" style="padding:24px">沒有符合的商品</div>')
+  +(rows.length?`<div class="sum"><div class="sr h"><span>品項</span><span>數量</span><span>金額</span></div>${rows.map(r=>`<div class="sr"><span>${esc(r.n)}</span><span>${r.q}</span><span>${money(r.s)}</span></div>`).join('')}${giftHtml(tot)}<hr style="margin:10px 0"><div class="row"><b>總計</b><b style="font-size:18px">${money(tot)}</b></div></div>`:'');
+}
+/* 消費禮／滿額禮（顯示方式和後台預覽相同；贈品只顯示，不影響訂單金額） */
+const PM=id=>(CFG.pmeta||{})[id];
+function giftHtml(tot){
+  const R=CFG.rules||{},bought=PRODS.filter(p=>qtyOf(p)>0);if(!bought.length)return '';
+  const used={};bought.forEach(p=>{const q=qtyOf(p);(p.combo&&p.combo.length?p.combo:[{pid:p.id,q:1}]).forEach(c=>{used[c.pid]=(used[c.pid]||0)+q*c.q})});
+  const bP=r=>r.pids||(r.pid?[r.pid]:[]),bW=r=>r.works||[];
+  const bl=r=>bP(r).map(id=>PM(id)).filter(Boolean).map(m=>m.n).concat(bW(r).map(w=>'作品：'+w)).join('、');
+  const gName=r=>r.gid&&PM(r.gid)?PM(r.gid).n:(r.text||'（未選擇）');
+  const rs=[];(R.full||[]).filter(r=>tot>=r.amt).forEach(r=>rs.push({txt:`滿 $${r.amt}`,r}));
+  (R.buy||[]).forEach(r=>{const ps=bP(r),ws=bW(r);
+    const ok=(!ps.length&&!ws.length)||bought.some(p=>[{id:p.id,w:p.work}].concat((p.combo||[]).map(c=>({id:c.pid,w:(PM(c.pid)||{}).w}))).some(x=>ps.includes(x.id)||(x.w&&ws.includes(x.w))));
+    if(!ok)return;const l=bl(r);rs.push({txt:'消費禮'+(l?`（購買${l}）`:''),r})});
+  const ic=`<span style="display:inline-block;width:14px;height:14px;vertical-align:-2px">${GIFT}</span>`,left={};
+  return rs.map(o=>{const r=o.r,pill=`<span class="pill">${esc(o.txt)}</span>`;
+    if(!r.gid)return `<div class="sr"><span style="word-break:break-all">${ic} ${esc(gName(r))} ${pill}</span><span></span><span>-</span></div>`;
+    const g=PM(r.gid);
+    if(!g||!g.e||g.o)return `<div class="sr" style="opacity:.55"><span style="word-break:break-all">${ic} ${esc(g?g.n:gName(r))} ${pill}<br><small>本場次無法贈送</small></span><span>0</span><span>-</span></div>`;
+    const comps=g.c&&g.c.length?g.c:[{pid:r.gid,q:1}];let cap=Infinity;
+    comps.forEach(c=>{const x=PM(c.pid),v=x?x.s:null;if(v!=null)cap=Math.min(cap,Math.floor((v-(used[c.pid]||0)-(left[c.pid]||0))/c.q))});
+    cap=Math.max(0,cap);const qty=Math.min(1,cap);comps.forEach(c=>{left[c.pid]=(left[c.pid]||0)+qty*c.q});
+    return `<div class="sr" ${qty?'':'style="opacity:.55"'}><span style="word-break:break-all">${ic} ${esc(g.n)} ${pill}${qty?'':'<br><small>庫存不足</small>'}</span><span>${qty}</span><span>-</span></div>`}).join('');
 }
 function tog(k,i){const ws=[...new Set(PRODS.map(p=>p.work).filter(Boolean))],gs=[...new Set(PRODS.map(p=>p.group).filter(Boolean))];
   if(k=='g')FG=i<0||FG==gs[i]?'':gs[i];else{const w=ws[i],j=FW.indexOf(w);j>=0?FW.splice(j,1):FW.push(w)}drawProd()}
@@ -183,7 +208,7 @@ function pvOpen(id){PDID=id;PDI=0;pdR()}
 function pdR(){const p=PRODS.find(x=>x.id==PDID);if(!p)return;let d=$('#pd');if(!d){d=document.createElement('div');d.id='pd';d.onclick=e=>{if(e.target===d)pdClose()};document.body.appendChild(d)}
   const im=imgsOf(p),its=itemsOf(p),s=stockOf(p),q=qtyOf(p),so=s!=null&&s<=0;if(PDI>=im.length)PDI=0;
   d.innerHTML=`<div class="pvd-b"><button class="pvd-x" onclick="pdClose()">×</button><div class="pvd-im${im.length?'':' ph'}${so?' so':''}" id="pdim">${im.length?`<div class="pvd-trk" id="pdtrk" style="transform:translateX(-${PDI*100}%)">${im.map(u=>`<div class="pvd-s" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`:GIFT}${so?SOLD:''}</div>${im.length>1?`<div class="pvd-th" id="pdth">${im.map((u,i)=>`<i class="${i==PDI?'on':''}" style="background-image:url('${esc(u)}')" onclick="pdGo(${i})"></i>`).join('')}</div>`:''}
-  <div class="pvd-in">${its.map((x,i)=>`<div class="pvd-r"><b class="pvd-n">${esc(x.name)}</b><b style="flex:none;font-size:18px">${money(x.price)}</b></div><div class="pvd-r" style="margin:6px 0 12px;align-items:center"><span class="tx" style="flex:1;min-width:0">${i==0?esc(p.desc||''):''}${i==0&&s!=null&&s>0&&s<=5?`${p.desc?'\n':''}剩 ${s}`:''}</span><span class="pvd-q"><button onclick="dq(${p.id},'${x.k}',-1)">−</button><b>${Q[x.k]||0}</b><button onclick="dq(${p.id},'${x.k}',1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></span></div>`).join('')}
+  <div class="pvd-in">${its.map((x,i)=>`<div class="pvd-r"><b class="pvd-n">${esc(x.name)}</b><b style="flex:none;font-size:18px">${money(x.price)}</b></div><div class="pvd-r" style="margin:6px 0 12px;align-items:center"><span class="tx" style="flex:1;min-width:0">${i==0?esc(p.desc||''):''}</span><span class="pvd-q"><button onclick="dq(${p.id},'${x.k}',-1)">−</button><b>${Q[x.k]||0}</b><button onclick="dq(${p.id},'${x.k}',1)" ${so||(s!=null&&q>=s)?'disabled':''}>+</button></span></div>`).join('')}
   <hr style="margin:4px 0 12px"><div class="row"><b>小計</b><b style="font-size:18px">${money(sumOf(p))}</b></div><button class="btn" style="margin-top:16px" onclick="pdClose()">完成</button></div></div>`;
   d.classList.add('on');pdSwipe()}
 function pdGo(i){const p=PRODS.find(x=>x.id==PDID);if(!p)return;const n=imgsOf(p).length;if(!n)return;PDI=Math.max(0,Math.min(n-1,i));const k=$('#pdtrk');if(k){k.style.transition='';k.style.transform=`translateX(-${PDI*100}%)`}document.querySelectorAll('#pdth i').forEach((e,j)=>e.classList.toggle('on',j==PDI))}
@@ -206,12 +231,13 @@ function zgo(d){ZX=(ZX+d+ZI.length)%ZI.length;zdraw();if(PDID!=null)pdGo(ZX)}
  z.onpointerup=end;z.onpointercancel=end})();
 
 /* ===== 送出 ===== */
-function collect(){
+function collect(blocks){
   const ans={},o={};let bad=null;
-  for(const b of CFG.blocks){
+  for(const b of (blocks||CFG.blocks)){
     const t=b.type,box=document.querySelector(`[data-b="${CSS.escape(String(b.id))}"]`);
     if(t=='products'){continue}
     if(t=='pickup'){const c=document.querySelector('input[name=pickup]:checked');o.mode=c&&c.value=='ship'?'ship':'onsite';continue}
+    if(t=='last5'){const v=(box.querySelector('input').value||'').trim();if(!/^\d{5}$/.test(v)&&!bad)bad={box,msg:`「${b.label||'匯款帳號後五碼'}」請輸入 5 位數字`};o.last5=v;continue}
     if(!PF_IN.includes(t))continue;
     let v;
     if(t=='checkbox'){v=[...box.querySelectorAll('input:checked')].map(x=>x.value)}
@@ -257,22 +283,33 @@ function done(r){
 }
 
 /* ===== 匯款回報頁（連結帶 t=訂單代碼） ===== */
+let ORD=null;
 async function payInit(){
   const r=await jget({action:'order',t:TOKEN});
   if(!r||r.ok===false)return fail((r&&r.err)||'找不到訂單');
-  const o=r.order||r.data||r,items=o.items||[];
-  document.title='匯款回報';
-  $('#app').innerHTML=`<div class="t">匯款回報</div><div class="tx">訂單編號 #${esc(o.no||'')}${o.status?`　狀態：${esc(o.status)}`:''}</div>
-  <div class="box">${items.map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>應付</b><b style="font-size:18px">${money(o.total)}</b></div></div>
-  ${r.bank||o.bank?`<div class="box"><div class="l">匯款資訊</div><div style="white-space:pre-wrap">${esc(r.bank||o.bank)}</div></div>`:''}
-  ${r.canPay===false?`<div class="msg" style="padding:24px 0">${o.mode=='ship'?'通販訂單是貨到付款，不需要匯款回報。':'這筆訂單目前不需要匯款回報（可能已確認收款或已取消）。'}</div>`:`<div class="b"><div class="l">匯款帳號後五碼<i>*</i></div><input id="l5" inputmode="numeric" maxlength="5" placeholder="例如 12345"></div>
-  <div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`}`;
+  const o=r.order||r.data||r;ORD={no:o.no,status:o.status,mode:o.mode,items:o.items||[],total:o.total,bank:r.bank||o.bank||''};
+  let bl=(r.blocks||o.blocks||[]).slice();
+  if(!bl.length)bl=[{id:'p_sum',type:'ordersum',label:'訂單明細'},{id:'p_bank',type:'bankinfo',label:'匯款資訊'}];
+  if(!bl.some(b=>b.type=='last5'))bl.push({id:'p_l5',type:'last5',label:'匯款帳號後五碼',ph:'例如 12345',req:1});
+  PAYB=bl;
+  const ttl=r.payTitle||o.payTitle||'匯款回報',note=r.payNote||o.payNote||'';
+  document.title=ttl;
+  const can=r.canPay!==false;
+  const head=`<div class="t">${esc(ttl)}</div>${note?`<div class="tx" style="margin-bottom:4px">${esc(note)}</div>`:''}<div class="tx">訂單編號 #${esc(ORD.no||'')}${ORD.status?`　狀態：${esc(ORD.status)}`:''}</div>`;
+  if(!can){
+    const sum=bl.filter(b=>b.type=='ordersum');
+    $('#app').innerHTML=head+sum.map(b=>`<div class="box">${field(b)}</div>`).join('')+`<div class="msg" style="padding:24px 0">${o.mode=='ship'?'通販訂單是貨到付款，不需要匯款回報。':'這筆訂單目前不需要匯款回報（可能已確認收款或已取消）。'}</div>`;
+    return;
+  }
+  $('#app').innerHTML=head+`<div id="fm">${bl.map(b=>`<div class="b" data-b="${esc(b.id)}">${field(b)}</div>`).join('')}</div><div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`;
 }
+let PAYB=[];
 async function pay(){
-  const v=($('#l5').value||'').trim(),er=$('#er');er.textContent='';
-  if(!/^\d{5}$/.test(v)){er.textContent='請輸入 5 位數字';return}
+  const er=$('#er');er.textContent='';
+  const {ans,o,bad}=collect(PAYB);
+  if(bad){er.textContent=bad.msg;try{bad.box.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}return}
   const g=$('#go');g.disabled=true;g.textContent='送出中…';
-  try{const r=await jpost({action:'pay',base:location.origin+location.pathname,token:TOKEN,t:TOKEN,last5:v});if(!r.ok)throw new Error(r.err||'回報失敗');
+  try{const r=await jpost({action:'pay',base:location.origin+location.pathname,token:TOKEN,t:TOKEN,last5:o.last5,ans});if(!r.ok)throw new Error(r.err||'回報失敗');
     $('#app').innerHTML='<div class="t">已收到回報</div><div class="tx">感謝您，店家確認款項後會再通知您。</div>'}
   catch(e){er.textContent=e.message;g.disabled=false;g.textContent='回報已匯款'}
 }
