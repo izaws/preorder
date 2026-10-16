@@ -291,7 +291,8 @@ async function payInit(){
   let bl=(r.blocks||o.blocks||[]).slice();
   if(!bl.length)bl=[{id:'p_sum',type:'ordersum',label:'訂單明細'},{id:'p_bank',type:'bankinfo',label:'匯款資訊'}];
   if(!bl.some(b=>b.type=='last5'))bl.push({id:'p_l5',type:'last5',label:'匯款帳號後五碼',ph:'例如 12345',req:1});
-  PAYB=bl;
+  PAYB=bl;DONE={title:r.doneTitle==null?'已收到回報':r.doneTitle,note:r.doneNote==null?'感謝您，店家確認款項後會再通知您。':r.doneNote,blocks:r.doneBlocks||[]};
+  if(r.reported)return donePage();
   const ttl=r.payTitle||o.payTitle||'匯款回報',note=r.payNote||o.payNote||'';
   document.title=ttl;
   const can=r.canPay!==false;
@@ -303,15 +304,17 @@ async function payInit(){
   }
   $('#app').innerHTML=head+`<div id="fm">${bl.map(b=>`<div class="b" data-b="${esc(b.id)}">${field(b)}</div>`).join('')}</div><div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`;
 }
-let PAYB=[];
+let PAYB=[],DONE=null;
+function donePage(){const d=DONE||{title:'已收到回報',note:'感謝您，店家確認款項後會再通知您。',blocks:[]};document.title=d.title||'已收到回報';
+  $('#app').innerHTML=`<div class="t">${esc(d.title||'已收到回報')}</div>${d.note?`<div class="tx" style="margin-bottom:4px">${esc(d.note)}</div>`:''}${(d.blocks||[]).map(b=>`<div class="b">${field(b)}</div>`).join('')}`;scrollTo(0,0)}
 async function pay(){
   const er=$('#er');er.textContent='';
   const {ans,o,bad}=collect(PAYB);
   if(bad){er.textContent=bad.msg;try{bad.box.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}return}
   const g=$('#go');g.disabled=true;g.textContent='送出中…';
-  try{const r=await jpost({action:'pay',base:location.origin+location.pathname,token:TOKEN,t:TOKEN,last5:o.last5,ans});if(!r.ok)throw new Error(r.err||'回報失敗');
-    $('#app').innerHTML='<div class="t">已收到回報</div><div class="tx">感謝您，店家確認款項後會再通知您。</div>'}
-  catch(e){er.textContent=e.message;g.disabled=false;g.textContent='回報已匯款'}
+  try{const r=await jpost({action:'pay',base:location.origin+location.pathname,token:TOKEN,t:TOKEN,last5:o.last5,ans});if(!r.ok){const x=new Error(r.err||'回報失敗');x.reported=!!r.reported;throw x}
+    donePage()}
+  catch(e){if(e.reported)return donePage();er.textContent=e.message;g.disabled=false;g.textContent='回報已匯款'}
 }
 init();
 </script>
