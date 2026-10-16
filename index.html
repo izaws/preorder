@@ -12,7 +12,7 @@ html,body{margin:0}
 body{background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
 #app{max-width:560px;margin:0 auto;padding:20px 16px 60px}
 .t{font-size:24px;font-weight:700;margin:4px 0 8px}
-.tx{font-size:14px;color:var(--sub);white-space:pre-wrap;line-height:1.6}
+.tx{font-size:14px;color:var(--sub);white-space:pre-wrap;line-height:1.6}.tx.rich{white-space:normal}
 .b{margin-top:16px}
 .l{font-size:14px;color:var(--sub);margin:0 2px 6px}.l i{color:var(--red);font-style:normal;margin-left:2px}
 .sec{font-size:18px;font-weight:700}.hd{font-size:20px;font-weight:700}
@@ -104,6 +104,19 @@ async function jpost(body){const r=await fetch(API,{method:'POST',headers:{'Cont
 const money=n=>'$ '+Number(n||0).toLocaleString('en-US');
 function fail(msg,raw){$('#app').innerHTML=`<div class="msg">${esc(msg)}${raw!==undefined?`<details style="margin-top:14px"><summary>技術資訊</summary><pre>${esc(JSON.stringify(raw,null,2).slice(0,1500))}</pre></details>`:''}</div>`}
 
+
+const gapOf=b=>b&&b.gap!=null&&b.gap!==''?Math.max(0,Math.min(80,+b.gap||0)):16;
+/* 店家設定的文字格式（只保留安全的標籤與樣式） */
+function cleanH(html){const d=document.createElement('div');d.innerHTML=html;const OK=['SPAN','B','STRONG','I','EM','U','A','BR','DIV','P'],CSS=['color','background-color','font-size','font-weight','text-align','font-style','text-decoration'];
+ const walk=n=>{[...n.childNodes].forEach(c=>{if(c.nodeType==3)return;if(c.nodeType!=1){c.remove();return}walk(c);if(!OK.includes(c.tagName)){c.replaceWith(...c.childNodes);return}
+  [...c.attributes].forEach(a=>{const k=a.name;if(k=='style'){const st=c.style,keep=CSS.map(q=>st.getPropertyValue(q)?q+':'+st.getPropertyValue(q).replace(/[;"<>]/g,''):'').filter(Boolean).join(';');if(keep)c.setAttribute('style',keep);else c.removeAttribute('style')}else if(k=='href'&&c.tagName=='A'){if(!/^(https?:|mailto:)/i.test(a.value))c.removeAttribute('href')}else c.removeAttribute(k)});
+  if(c.tagName=='A'){c.setAttribute('target','_blank');c.setAttribute('rel','noopener')}})};walk(d);return d.innerHTML}
+const richHtml=(h,t)=>h?cleanH(h):esc(t||'');
+/* 預購完成頁預設內容（後台沒設定時使用） */
+const DEF_OD=m=>m=='ship'
+ ?{title:'預購完成',note:'訂單編號 {訂單編號}，確認信已寄到您的信箱。店家之後會再寄賣場連結信給您，請留意信箱（若沒收到請檢查垃圾郵件匣）。',blocks:[{id:'o_sum',type:'ordersum'}]}
+ :{title:'預購完成',note:'訂單編號 {訂單編號}，確認信已寄到您的信箱。若沒收到請檢查垃圾郵件匣。',blocks:[{id:'o_sum',type:'ordersum'},{id:'o_bank',type:'bankinfo',label:'匯款資訊'},{id:'o_btn',type:'paybtn',label:'前往回報匯款'}]};
+
 /* ===== 狀態 ===== */
 let CFG=null,PRODS=[],Q={},FW=[],FG='';
 const stockOf=p=>{const v=p.stock!=null?p.stock:p.rem!=null?p.rem:p.left!=null?p.left:(p.evs&&CFG&&CFG.ev!=null&&p.evs[CFG.ev]!=null?p.evs[CFG.ev]:null);return v==null?null:+v};
@@ -121,7 +134,7 @@ async function init(){
     if(raw&&raw.ok===false)return fail(raw.err||'表單載入失敗');
     const c=raw.config||raw.data||raw,pre=c.pre||c;
     if(!Array.isArray(pre.blocks))return fail('後台回應的格式和表單不符',raw);
-    CFG={ev:pre.ev!=null?pre.ev:c.ev,title:pre.title||'',note:pre.note||'',blocks:pre.blocks,open:pre.open!==false&&c.open!==false,rules:c.rules||{full:[],buy:[]},pmeta:c.pmeta||{}};
+    CFG={ev:pre.ev!=null?pre.ev:c.ev,title:pre.title||'',note:pre.note||'',noteH:pre.noteH||'',od:pre.od||c.od||null,blocks:pre.blocks,open:pre.open!==false&&c.open!==false,rules:c.rules||{full:[],buy:[]},pmeta:c.pmeta||{}};
     const all=c.products||pre.products||raw.products||[],pids=pre.pids||c.pids;
     PRODS=all.filter(p=>p&&!p.off&&(!pids||pids.includes(p.id)));
     document.title=CFG.title||'預購表單';
@@ -135,12 +148,13 @@ function field(b){
   const t=b.type,al=`text-align:${b.align||'left'}`,L=`<div class="l">${esc(b.label||'')}${b.req?'<i>*</i>':''}</div>`,ph=esc(b.ph||''),n=esc(b.id);
   if(t=='section')return `<div class="sec" style="${al}">${esc(b.label||'')}</div>`;
   if(t=='heading')return `<div class="hd" style="${al}">${esc(b.label||'')}</div>${b.text?`<div class="tx" style="${al}">${esc(b.text)}</div>`:''}`;
-  if(t=='note')return `<div class="tx" style="${al}">${esc(b.text||'')}</div>`;
+  if(t=='note')return `<div class="tx${b.html?' rich':''}" style="${al}">${richHtml(b.html,b.text)}</div>`;
   if(t=='divider')return '<hr>';
   if(t=='image')return b.url?`<div style="text-align:${b.align||'center'}"><img src="${esc(b.url)}" alt="" style="max-width:${b.size||100}%;border-radius:12px"></div>`:'';
   if(t=='products')return `<div id="prod"></div>`;
-  if(t=='ordersum'&&ORD)return `<div class="sr h" style="grid-template-columns:1fr 44px 76px"><span>品項</span><span>數量</span><span>金額</span></div>${(ORD.items||[]).map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>應付</b><b style="font-size:18px">${money(ORD.total)}</b></div>`;
+  if(t=='ordersum'&&ORD)return `<div class="sr h" style="grid-template-columns:1fr 44px 76px"><span>品項</span><span>數量</span><span>金額</span></div>${(ORD.items||[]).map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr style="margin:10px 0"><div class="row"><b>${ORD.done?'合計':'應付'}</b><b style="font-size:18px">${money(ORD.total)}</b></div>`;
   if(t=='bankinfo')return ORD&&ORD.bank?`<div class="l">${esc(b.label||'匯款資訊')}</div><div style="white-space:pre-wrap">${esc(ORD.bank)}</div>`:'';
+  if(t=='paybtn')return ORD&&ORD.payUrl?`<a class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:0" href="${esc(ORD.payUrl)}">${esc(b.label||'前往回報匯款')}</a>`:'';
   if(t=='last5')return `${L}<input name="${n}" inputmode="numeric" maxlength="5" placeholder="${ph}" autocomplete="off">`;
   if(t=='pickup')return `<div class="l">${esc(b.label||'')}<i>*</i></div>`+(b.opts||[]).map((o,i)=>`<label class="o"><input type="radio" name="pickup" value="${esc(o.id)}" ${i==0?'checked':''}>${esc(o.label)}</label>`).join('');
   if(t=='select')return `${L}<select name="${n}"><option value="">請選擇</option>${(b.opts||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
@@ -151,9 +165,9 @@ function field(b){
   return `${L}<input name="${n}" type="${ty}" placeholder="${ph}" ${t=='email'?'autocapitalize="off"':''}>`;
 }
 function render(){
-  $('#app').innerHTML=`<div class="t">${esc(CFG.title||'預購表單')}</div>${CFG.note?`<div class="tx">${esc(CFG.note)}</div>`:''}
+  $('#app').innerHTML=`<div class="t">${esc(CFG.title||'預購表單')}</div>${CFG.note||CFG.noteH?`<div class="tx${CFG.noteH?' rich':''}">${richHtml(CFG.noteH,CFG.note)}</div>`:''}
   <input class="hp" id="hp" tabindex="-1" autocomplete="off">
-  <div id="fm">${CFG.blocks.map(b=>`<div class="b" data-b="${esc(b.id)}">${field(b)}</div>`).join('')}</div>
+  <div id="fm">${CFG.blocks.map(b=>`<div class="b" data-b="${esc(b.id)}" style="margin-top:${gapOf(b)}px">${field(b)}</div>`).join('')}</div>
   <div class="err" id="er"></div><button class="btn" id="go" onclick="submit()">送出預購</button>`;
   drawProd();
 }
@@ -274,11 +288,12 @@ async function submit(){
   }catch(e){er.textContent=e.message;go.disabled=false;go.textContent='送出預購'}
 }
 function done(r){
-  const lines=(r.items||[]).map(i=>`<div class="sr" style="grid-template-columns:1fr 44px 76px"><span>${esc(i.name)}</span><span>${i.qty}</span><span>${money(i.price*i.qty)}</span></div>`).join('');
-  $('#app').innerHTML=`<div class="t">預購完成</div><div class="tx">訂單編號 #${esc(r.no)}，確認信已寄到您的信箱${r.mailErr?'（寄信發生問題，請截圖此頁保存）':''}。若沒收到請檢查垃圾郵件匣。</div>
-  <div class="box">${lines}<hr style="margin:10px 0"><div class="row"><b>合計</b><b style="font-size:18px">${money(r.total)}</b></div></div>
-  ${r.mode=='onsite'&&r.bank?`<div class="box"><div class="l">匯款資訊</div><div style="white-space:pre-wrap">${esc(r.bank)}</div></div>`:''}
-  ${r.payUrl?`<a class="btn" style="display:block;text-align:center;text-decoration:none" href="${esc(r.payUrl)}">前往回報匯款</a>`:''}`;
+  const m=r.mode=='ship'?'ship':'onsite',d=(CFG.od&&CFG.od[m])||DEF_OD(m),sub=x=>String(x||'').replace(/\{訂單編號\}/g,'#'+r.no);
+  /* 通販是貨到付款：沒有匯款資訊、也不會出現「前往回報匯款」 */
+  ORD={no:r.no,mode:m,items:r.items||[],total:r.total,bank:m=='onsite'?(r.bank||''):'',payUrl:m=='onsite'?(r.payUrl||''):'',done:1};
+  const ttl=sub(d.title||'預購完成'),nh=d.noteH?cleanH(sub(d.noteH)):esc(sub(d.note));
+  document.title=ttl;
+  $('#app').innerHTML=`<div class="t">${esc(ttl)}</div>${nh?`<div class="tx${d.noteH?' rich':''}">${nh}</div>`:''}${r.mailErr?`<div class="err" style="min-height:0">（寄信發生問題，請截圖此頁保存）</div>`:''}${(d.blocks||[]).map(b=>`<div class="b" style="margin-top:${gapOf(b)}px">${field(b)}</div>`).join('')}`;
   scrollTo(0,0);
 }
 
@@ -291,22 +306,22 @@ async function payInit(){
   let bl=(r.blocks||o.blocks||[]).slice();
   if(!bl.length)bl=[{id:'p_sum',type:'ordersum',label:'訂單明細'},{id:'p_bank',type:'bankinfo',label:'匯款資訊'}];
   if(!bl.some(b=>b.type=='last5'))bl.push({id:'p_l5',type:'last5',label:'匯款帳號後五碼',ph:'例如 12345',req:1});
-  PAYB=bl;DONE={title:r.doneTitle==null?'已收到回報':r.doneTitle,note:r.doneNote==null?'感謝您，店家確認款項後會再通知您。':r.doneNote,blocks:r.doneBlocks||[]};
+  PAYB=bl;DONE={title:r.doneTitle==null?'已收到回報':r.doneTitle,note:r.doneNote==null?'感謝您，店家確認款項後會再通知您。':r.doneNote,blocks:r.doneBlocks||[],noteH:r.doneNoteH||''};
   if(r.reported)return donePage();
-  const ttl=r.payTitle||o.payTitle||'匯款回報',note=r.payNote||o.payNote||'';
+  const ttl=r.payTitle||o.payTitle||'匯款回報',note=r.payNote||o.payNote||'',noteH=r.payNoteH||'';
   document.title=ttl;
   const can=r.canPay!==false;
-  const head=`<div class="t">${esc(ttl)}</div>${note?`<div class="tx" style="margin-bottom:4px">${esc(note)}</div>`:''}<div class="tx">訂單編號 #${esc(ORD.no||'')}${ORD.status?`　狀態：${esc(ORD.status)}`:''}</div>`;
+  const head=`<div class="t">${esc(ttl)}</div>${note||noteH?`<div class="tx${noteH?' rich':''}" style="margin-bottom:4px">${richHtml(noteH,note)}</div>`:''}<div class="tx">訂單編號 #${esc(ORD.no||'')}${ORD.status?`　狀態：${esc(ORD.status)}`:''}</div>`;
   if(!can){
     const sum=bl.filter(b=>b.type=='ordersum');
     $('#app').innerHTML=head+sum.map(b=>`<div class="box">${field(b)}</div>`).join('')+`<div class="msg" style="padding:24px 0">${o.mode=='ship'?'通販訂單是貨到付款，不需要匯款回報。':'這筆訂單目前不需要匯款回報（可能已確認收款或已取消）。'}</div>`;
     return;
   }
-  $('#app').innerHTML=head+`<div id="fm">${bl.map(b=>`<div class="b" data-b="${esc(b.id)}">${field(b)}</div>`).join('')}</div><div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`;
+  $('#app').innerHTML=head+`<div id="fm">${bl.map(b=>`<div class="b" data-b="${esc(b.id)}" style="margin-top:${gapOf(b)}px">${field(b)}</div>`).join('')}</div><div class="err" id="er"></div><button class="btn" id="go" onclick="pay()">回報已匯款</button>`;
 }
 let PAYB=[],DONE=null;
 function donePage(){const d=DONE||{title:'已收到回報',note:'感謝您，店家確認款項後會再通知您。',blocks:[]};document.title=d.title||'已收到回報';
-  $('#app').innerHTML=`<div class="t">${esc(d.title||'已收到回報')}</div>${d.note?`<div class="tx" style="margin-bottom:4px">${esc(d.note)}</div>`:''}${(d.blocks||[]).map(b=>`<div class="b">${field(b)}</div>`).join('')}`;scrollTo(0,0)}
+  $('#app').innerHTML=`<div class="t">${esc(d.title||'已收到回報')}</div>${d.note||d.noteH?`<div class="tx${d.noteH?' rich':''}" style="margin-bottom:4px">${richHtml(d.noteH,d.note)}</div>`:''}${(d.blocks||[]).map(b=>`<div class="b" style="margin-top:${gapOf(b)}px">${field(b)}</div>`).join('')}`;scrollTo(0,0)}
 async function pay(){
   const er=$('#er');er.textContent='';
   const {ans,o,bad}=collect(PAYB);
